@@ -15,22 +15,24 @@ namespace eSocium.Statistics
             int N = context.GetLength(1);
             double[,] result = new double[M, M];
             for (int i = 0; i < M; ++i) {
+                double Nip = 0;
+                for (int k = 0; k < N; ++k)
+                    if (context[i, k])
+                        ++Nip;
                 result[i, i] = 1;
+                double Nin = N - Nip;
                 for (int j = i+1; j < M; ++j) {
-                    double Nip = 0, Njp = 0, Njn = 0, Nin = 0, Nipjp = 0, Nipjn = 0, Ninjp = 0, Ninjn = 0;
-                    for (int k = 0; k < N; ++k) {
-                        if (context[i, k])
-                            ++Nip;
-                        if (context[j, k])
+                    double Njp = 0, Nipjp = 0;
+                    for (int k = 0; k < N; ++k)
+                        if (context[j, k]) {
                             ++Njp;
-                        if (context[i, k] && context[j, k])
-                            ++Nipjp;
-                    }
-                    Nin = N - Nip;
-                    Njn = N - Njp;
-                    Nipjn = Nip - Nipjp;
-                    Ninjp = Njp - Nipjp;
-                    Ninjn = Nin - Ninjp;
+                            if (context[i, k])
+                                ++Nipjp;
+                        }
+                    double Njn = N - Njp;
+                    double Nipjn = Nip - Nipjp;
+                    double Ninjp = Njp - Nipjp;
+                    double Ninjn = Nin - Ninjp;
 
                     double chi2 = N * (
                                     1.0 / (Nip * Njp) * Metrics.sqr(Nipjp - (Nip * Njp) / N)
@@ -92,59 +94,50 @@ namespace eSocium.Statistics
         /// <returns>M*M matrix</returns>
         public static double[,] EntropyIndependenceForRows(bool[,] context)
         {
-            int M = context.GetLength(1);
-            int N = context.GetLength(2);
+            int M = context.GetLength(0);
+            int N = context.GetLength(1);
             double[,] result = new double[M, M];
-            //Array.Clear(result, 0, M * M);
             for (int i = 0; i < M; ++i) {
-                result[i,i]=1;
-                double Nip = 0, Nin = 0;
-                for (int k = 0; k < N; ++k) {
+                double Nip = 0;
+                for (int k = 0; k < N; ++k)
                     if (context[i, k])
                         ++Nip;
-                }
-                Nin = N - Nip;
+                double Nin = N - Nip;
                 double[] PMF2=new double[2];
                 PMF2[0]=Nip/N;
                 PMF2[1]=Nin/N;
                 double Hi=Metrics.Entropy(PMF2);
-
+                result[i,i]=1;
 
                 for (int j = i+1; j < M; ++j) {
-                    double Nip = 0, Njp = 0, Njn = 0, Nin = 0, Nipjp = 0, Nipjn = 0, Ninjp = 0, Ninjn = 0;
-                    for (int k = 0; k < N; ++k) {
-                        if (context[i, k])
-                            ++Nip;
-                        if (context[j, k])
+                    double Njp = 0, Nipjp = 0;
+                    for (int k = 0; k < N; ++k)
+                        if (context[j, k]) {
                             ++Njp;
-                        if (context[i, k] && context[j, k])
-                            ++Nipjp;
-                    }
-                    Nin = N - Nip;
-                    Njn = N - Njp;
-                    Nipjn = Nip - Nipjp;
-                    Ninjp = Njp - Nipjp;
-                    Ninjn = Nin - Ninjp;
+                            if (context[i, k])
+                                ++Nipjp;
+                        }
+                    double Njn = N - Njp;
+                    double Nipjn = Nip - Nipjp;
+                    double Ninjp = Njp - Nipjp;
+                    double Ninjn = Nin - Ninjp;
 
-                    
+                    PMF2[0] = Njp / N;
+                    PMF2[1] = Njn / N;
+                    double Hj = Metrics.Entropy(PMF2);
 
-                }
-            }
+                    double[] PMF4 = new double[4];
+                    PMF4[0] = Nipjp / N;
+                    PMF4[1] = Nipjn / N;
+                    PMF4[2] = Ninjp / N;
+                    PMF4[3] = Ninjn / N;
+                    double Hij = Metrics.Entropy(PMF4);
 
-                    double H1, H2, maxH, H12;
-                    H1 = -(p1 * System.Math.Log(p1, 2) + p0 * System.Math.Log(p0, 2));
-                    H2 = -(q1 * System.Math.Log(q1, 2) + q0 * System.Math.Log(q0, 2));
-                    if (H1 > H2)
-                        maxH = H1;
-                    else
-                        maxH = H2;
+                    result[i, j] = 1 - (Hij - Hi) / Hj;
+                    result[j, i] = 1 - (Hij - Hj) / Hi;
+                } // j
+            } // i
 
-                    H12 = -(v00 * System.Math.Log(v00, 2) + v01 * System.Math.Log(v01, 2) + v10 * System.Math.Log(v10, 2) + v11 * System.Math.Log(v11, 2));
-                    result[i, j] = (H12 - H1 - H2) / (maxH - H1 - H2);
-                    if (i != j)
-                        result[j, i] = result[i, j];
-                }
-            }
             return result;
         }
 
@@ -155,7 +148,54 @@ namespace eSocium.Statistics
         /// <returns>N*N matrix</returns>
         public static double[,] EntropyIndependenceForColumns(bool[,] context)
         {
-            throw new NotImplementedException();
+            int M = context.GetLength(0);
+            int N = context.GetLength(1);
+            double[,] result = new double[N, N];
+            for (int i = 0; i < N; ++i)
+            {
+                double Nip = 0;
+                for (int k = 0; k < M; ++k)
+                    if (context[k, i])
+                        ++Nip;
+                double Nin = N - Nip;
+                double[] PMF2 = new double[2];
+                PMF2[0] = Nip / N;
+                PMF2[1] = Nin / N;
+                double Hi = Metrics.Entropy(PMF2);
+                result[i, i] = 1;
+
+                for (int j = i + 1; j < N; ++j)
+                {
+                    double Njp = 0, Nipjp = 0;
+                    for (int k = 0; k < M; ++k)
+                        if (context[k, j])
+                        {
+                            ++Njp;
+                            if (context[k, j])
+                                ++Nipjp;
+                        }
+                    double Njn = N - Njp;
+                    double Nipjn = Nip - Nipjp;
+                    double Ninjp = Njp - Nipjp;
+                    double Ninjn = Nin - Ninjp;
+
+                    PMF2[0] = Njp / N;
+                    PMF2[1] = Njn / N;
+                    double Hj = Metrics.Entropy(PMF2);
+
+                    double[] PMF4 = new double[4];
+                    PMF4[0] = Nipjp / N;
+                    PMF4[1] = Nipjn / N;
+                    PMF4[2] = Ninjp / N;
+                    PMF4[3] = Ninjn / N;
+                    double Hij = Metrics.Entropy(PMF4);
+
+                    result[i, j] = 1 - (Hij - Hi) / Hj;
+                    result[j, i] = 1 - (Hij - Hj) / Hi;
+                } // j
+            } // i
+
+            return result;
         }
     }
 }
